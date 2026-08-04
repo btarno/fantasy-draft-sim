@@ -187,6 +187,44 @@ mixed archetypes, and so on — then tallies which strategy won each.
 **This is the sanity check.** A strategy that wins one scenario is overfit to that
 scenario's assumptions. A strategy that loses all seven is genuinely bad.
 
+### Calibrate against your league's real past draft
+
+```bash
+python3 calibrate.py --season 2025
+```
+
+The opponent model ships with assumed defaults (`noise=12`, `qb_urgency=2.2`).
+If your league has a recorded draft from a previous season, **measure those
+parameters instead of guessing**:
+
+```
+  MEASURED NOISE (skill positions only): 31.5
+    -> use  noise=31.5  in the sim   (default assumption was 12.0)
+  median deviation: -3.0 picks (drafts near consensus)
+
+  BY POSITION (negative = drafted EARLIER than consensus):
+    QB    n=22   mean   -49.2    <- QBs go ~49 picks early in this league
+    RB    n=40   mean    -2.6
+    WR    n=51   mean    +0.3
+
+  PER-MANAGER TENDENCY:
+    Fred                     mean  -28.5  stdev 65.3  reacher
+    Ben There, Wrecked That  mean  -13.5  stdev 35.4  reacher
+    Blips and Chitz          mean   +1.3  stdev 17.8  near ADP
+```
+
+In my league the real noise was **31.5** — nearly 3× my assumption. Rerunning the
+comparison with measured parameters didn't reverse the finding, it *amplified* it
+(the double-tap penalty grew from −21.6 to −40.5 points).
+
+Two ESPN quirks this handles:
+
+- **Historical ADP is not retained.** Past seasons return a flat placeholder
+  (`170.0` for every player). The script detects this and falls back to PPR draft
+  rank, which *is* retained.
+- **K and D/ST always appear hundreds of picks "early"** relative to their rank,
+  which wrecks the noise estimate. They're excluded from the calculation.
+
 ## Findings
 
 From my league (12-team, 2QB, 1 PPR, 2 FLEX, **4-point passing TDs**):

@@ -171,6 +171,47 @@ def cmd_sweep(cfg, args):
     print("  the opponent model. Trust findings that hold across all of them.")
 
 
+def cmd_risk(cfg, args):
+    """Injury risk profiles: compare players whose projections are close."""
+    import injury
+
+    board = api.load_board(cfg, refresh=args.refresh)
+    byname = {p["name"].lower(): p for p in board}
+
+    if args.players:
+        targets = []
+        for q in args.players.split(","):
+            q = q.strip().lower()
+            hit = byname.get(q) or next(
+                (p for p in board if q in p["name"].lower()), None)
+            if hit:
+                targets.append(hit)
+            else:
+                print(f"  (no match for '{q}')")
+    else:
+        targets = [p for p in board if p["pos"] in ("QB", "RB", "WR", "TE")][:args.top]
+
+    print(f"=== INJURY RISK PROFILES ({args.weeks}-week season, "
+          f"{args.trials} simulated seasons each) ===\n")
+    print(f"  {'player':<24}{'pos':<5}{'raw':>6}{'adj':>7}{'p10':>7}{'p90':>7}"
+          f"{'miss':>6}{'P(4+)':>7}{'P(full)':>9}")
+    rows = []
+    for p in targets:
+        r = injury.risk_profile(p, weeks=args.weeks, trials=args.trials, seed=42)
+        rows.append(r)
+    rows.sort(key=lambda r: -r["mean"])
+    for r in rows:
+        print(f"  {r['name']:<24}{r['pos']:<5}{r['proj_raw'] or 0:6.0f}{r['mean']:7.0f}"
+              f"{r['p10']:7.0f}{r['p90']:7.0f}{r['mean_missed']:6.1f}"
+              f"{r['p_misses_4plus']*100:6.0f}%{r['p_full_season']*100:8.0f}%")
+    print("\n  raw     = ESPN projection (assumes a fully healthy season)")
+    print("  adj     = injury-adjusted, incl. production from a replacement while out")
+    print("  p10/p90 = 10th / 90th percentile season outcomes")
+    print("  P(4+)   = probability of missing 4 or more games")
+    print("\n  Model validated against ProFootballLogic 2015 data "
+          "(python3 validate_injury.py)")
+
+
 def main():
     ap = argparse.ArgumentParser(description="ESPN fantasy draft simulator")
     ap.add_argument("--config", help="path to config.json")
@@ -208,6 +249,14 @@ def main():
     p.add_argument("--rb-floor", type=int, default=3, dest="rb_floor")
     p.add_argument("--refresh", action="store_true")
     p.set_defaults(func=cmd_sweep)
+
+    p = sub.add_parser("risk", help="injury risk profiles for players")
+    p.add_argument("--players", help="comma-separated names to compare")
+    p.add_argument("--top", type=int, default=15, help="top N if no names given")
+    p.add_argument("--weeks", type=int, default=17)
+    p.add_argument("--trials", type=int, default=4000)
+    p.add_argument("--refresh", action="store_true")
+    p.set_defaults(func=cmd_risk)
 
     args = ap.parse_args()
     cfg = api.load_config(args.config)

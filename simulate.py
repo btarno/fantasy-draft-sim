@@ -32,6 +32,87 @@ def val(p):
     return (p.get("proj") or 0) * mult
 
 
+# ---------------------------------------------------------------------------
+# Full-season Monte Carlo scoring (opt-in, see injury.py)
+#
+# val() above is the fast static haircut used during the draft itself. For
+# EVALUATING a finished roster, monte_carlo_score() simulates each player's
+# season week by week -- who gets hurt, for how long, and what the replacement
+# produces. That is the honest way to compare a fragile roster to a durable one.
+# ---------------------------------------------------------------------------
+
+def monte_carlo_score(roster, cfg, trials=300, seed=None, weeks=17):
+    """
+    Distribution of season outcomes for one roster.
+
+    Each trial simulates availability for every player, then scores the best
+    lineup available that week. Returns dict with mean/median/p10/p90.
+    """
+    import random as _random
+
+    import injury as _inj
+
+    rng = _random.Random(seed)
+    lineup = dict(cfg["lineup"])
+    flex_pos = cfg["flex_positions"]
+    n_flex = cfg["flex"]
+
+    totals = []
+    for _ in range(trials):
+        # Per-player availability mask for this simulated season
+        avail_weeks = {}
+        for p in roster:
+            avail_weeks[p["name"]] = _inj.simulate_availability(
+                p.get("pos", "?"), p.get("injury"), weeks, rng)
+
+        # Approximate weekly play: a player available A of W weeks contributes
+        # his per-game rate in those weeks. Build per-week availability by
+        # spreading missed games randomly (order does not affect the total for
+        # a fixed lineup, but it does affect WHO fills in).
+        season = 0.0
+        for wk in range(weeks):
+            playing = []
+            for p in roster:
+                a = avail_weeks[p["name"]]
+                if rng.random() < a / weeks:
+                    playing.append(p)
+            season += _best_week(playing, lineup, flex_pos, n_flex, weeks)
+        totals.append(season)
+
+    totals.sort()
+    n = len(totals)
+    return {
+        "mean": sum(totals) / n,
+        "median": totals[n // 2],
+        "p10": totals[n // 10],
+        "p90": totals[(n * 9) // 10],
+    }
+
+
+def _best_week(playing, lineup, flex_pos, n_flex, weeks):
+    """Best single-week score from the players available that week."""
+    by_pos = defaultdict(list)
+    for p in playing:
+        by_pos[p["pos"]].append((p.get("proj") or 0) / weeks)
+    for k in by_pos:
+        by_pos[k].sort(reverse=True)
+
+    total, used = 0.0, defaultdict(int)
+    for pos, count in lineup.items():
+        pool = by_pos.get(pos, [])
+        for i in range(min(count, len(pool))):
+            total += pool[i]
+            used[pos] += 1
+
+    # FLEX from whatever is left over
+    leftovers = []
+    for pos in flex_pos:
+        leftovers.extend(by_pos.get(pos, [])[used[pos]:])
+    leftovers.sort(reverse=True)
+    total += sum(leftovers[:n_flex])
+    return total
+
+
 def counts(roster):
     c = defaultdict(int)
     for p in roster:

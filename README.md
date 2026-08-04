@@ -225,6 +225,47 @@ Two ESPN quirks this handles:
 - **K and D/ST always appear hundreds of picks "early"** relative to their rank,
   which wrecks the noise estimate. They're excluded from the calculation.
 
+### Re-run everything after any change
+
+```bash
+python3 rerun.py            # full suite, ~2 min
+python3 rerun.py --quick    # ~10s
+```
+
+Runs the whole pipeline in one step: injury-model validation, fresh board pull,
+QB timing comparison, roster construction comparison, and risk profiles for the
+top of the board. Then it checks whether the headline findings still hold:
+
+```
+6. FINDING STABILITY
+  [HOLDS] QB@R4+R5 should be the worst QB-timing strategy
+  [HOLDS] zero-RB should be the worst roster construction
+  [HOLDS] best-available should be at or near the top
+
+  ALL CHECKS PASSED — findings stable, model validated.
+```
+
+Exits **1** if a check fails or a conclusion flips, so it can gate a cron job.
+Re-running by hand after each fix is how stale conclusions survive — this makes
+it one command.
+
+### Injury risk profiles
+
+```bash
+python3 ffsim.py risk --players "Jahmyr Gibbs,Bijan Robinson,Puka Nacua"
+python3 validate_injury.py     # always run after touching injury.py
+```
+
+```
+  player                  pos     raw    adj    p10    p90  miss  P(4+)  P(full)
+  Puka Nacua              WR      357    335    296    357   2.2    21%      38%
+  Bijan Robinson          RB      353    322    270    353   3.0    33%      31%
+  Jahmyr Gibbs            RB      366    316    258    355   4.6    52%       0%
+```
+
+Gibbs has the highest raw projection on the board and ranks **third** once his
+injury designation is modeled week by week. See [Injury model](#injury-model).
+
 ## Findings
 
 From my league (12-team, 2QB, 1 PPR, 2 FLEX, **4-point passing TDs**):
@@ -253,6 +294,16 @@ the board** even in a league that starts two of them.
 
 If your league uses 6-point passing TDs, that curve steepens and this conclusion
 may reverse. **Run it on your own settings.** That's the entire point of the tool.
+
+**4. Injuries cost ~145 projected points regardless of draft strategy.**
+The p10 floor sits ~115 points below the mean. Modeled week by week from real
+per-position hazard rates, not a fudge factor.
+
+**5. Injury risk changes who you take first overall.**
+The consensus 1.01 (highest raw projection, 366) carries a QUESTIONABLE tag and
+ranks **third** once availability is simulated: 52% chance of missing 4+ games,
+0% chance of a full season, and a floor 38 points below the healthy WR behind
+him. Raw projections hide this entirely.
 
 ## Limitations
 

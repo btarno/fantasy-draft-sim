@@ -12,11 +12,22 @@ import random
 from collections import defaultdict
 
 # Injury multipliers applied to projections when valuing a player.
-INJURY_DISCOUNT = {"OUT": 0.35, "DOUBTFUL": 0.6, "QUESTIONABLE": 0.92}
+# Multipliers applied to a player's projection based on ESPN's injury designation.
+#
+# IMPORTANT: this is a STATIC HAIRCUT, not injury simulation. It discounts players
+# who are ALREADY flagged hurt at the time the board was pulled. It does not model
+# new injuries occurring during the season, games missed, or replacement-level
+# fill-in production. See README "Limitations".
+INJURY_DISCOUNT = {
+    "INJURY_RESERVE": 0.15,
+    "OUT": 0.35,
+    "DOUBTFUL": 0.6,
+    "QUESTIONABLE": 0.92,
+}
 
 
 def val(p):
-    """Injury-adjusted projected points."""
+    """Injury-adjusted projected points. Missing projections score 0."""
     mult = INJURY_DISCOUNT.get(p.get("injury") or "ACTIVE", 1.0)
     return (p.get("proj") or 0) * mult
 
@@ -120,14 +131,16 @@ def make_strategy(qb1_round, qb2_round, cfg, rb_floor=3, elite_te_threshold=235)
         if c["QB"] < need.get("QB", 1) and rnd >= qb2_round and of("QB"):
             return of("QB")[0]
 
-        # Early rounds: best RB/WR, with an elite-TE exception
+        # Early rounds: best RB/WR by VALUE, with an elite-TE exception.
+        # NOTE: must rank by val(), not ADP order -- otherwise the injury
+        # discount is computed and then ignored at the most important picks.
         if rnd <= 3:
-            cands = [p for p in avail if p["pos"] in ("RB", "WR", "TE")][:6]
+            cands = [p for p in avail if p["pos"] in ("RB", "WR", "TE")][:8]
             elite_te = [p for p in cands if p["pos"] == "TE" and val(p) >= elite_te_threshold]
             if elite_te and c["TE"] == 0 and rnd >= 2:
-                return elite_te[0]
+                return max(elite_te, key=val)
             rbwr = [p for p in cands if p["pos"] in ("RB", "WR")]
-            return rbwr[0] if rbwr else cands[0]
+            return max(rbwr, key=val) if rbwr else max(cands, key=val)
 
         # RB floor -- don't let the RB room go empty chasing WRs
         if rb_floor and rnd >= 6 and c["RB"] < rb_floor:

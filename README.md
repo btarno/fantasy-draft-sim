@@ -278,6 +278,41 @@ points over strategies that buy a safe floor.
 Concretely: the "draft QBs very late" strategy wins on paper by landing QB2s who
 project well but carry real bust risk. The sim can't see that risk. Weigh it yourself.
 
+**Injuries are a static haircut, not a simulation.** This is worth being precise
+about. The tool reads ESPN's *current* injury designation and multiplies the
+projection:
+
+| ESPN status | multiplier |
+|---|---|
+| `ACTIVE` | 1.00 |
+| `QUESTIONABLE` | 0.92 |
+| `DOUBTFUL` | 0.60 |
+| `OUT` | 0.35 |
+| `INJURY_RESERVE` | 0.15 |
+
+Those numbers are judgment calls, not fitted to data. And on a typical preseason
+board only ~8% of players carry any designation at all — so for 92% of the pool
+the haircut does nothing.
+
+What it does **not** model:
+
+- **New injuries during the season.** Every player is assumed to stay as healthy
+  as they are today. In reality a meaningful share of any roster misses games.
+- **Games missed vs. reduced effectiveness.** A `QUESTIONABLE` tag is treated as
+  a flat 8% shave, when the real distribution is closer to "plays fine most weeks,
+  misses two entirely."
+- **Replacement production.** When your starter is out you play someone else, and
+  the sim never credits that.
+- **Position-specific durability.** RBs get hurt more than WRs. Not modeled.
+- **Age or injury history.** A 30-year-old RB coming off surgery is treated
+  identically to a 24-year-old who has never missed a snap.
+
+**Why this matters for the conclusions:** the haircut is sensitive enough to flip
+real decisions. On the 2026 board, `QUESTIONABLE` on the consensus 1.01 was enough
+to move the recommended first pick to the healthy WR behind him. Change the
+multiplier and the pick changes. Treat the injury adjustment as a nudge to think
+about risk, not as a calculated answer.
+
 **Only projected points are simulated.** No head-to-head schedule, no playoff
 bracket, no waiver wire, no trades, no bye-week management. A higher projected
 total is a good proxy for a better team, not a guarantee of a better season.

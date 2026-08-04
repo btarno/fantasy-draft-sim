@@ -1,0 +1,14 @@
+# NEVER commit credentials
+cookies.json
+*cookies*.json
+config.json
+
+# Cached ESPN data
+board.json
+*.cache
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store

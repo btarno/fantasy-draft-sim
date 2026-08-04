@@ -1,0 +1,13 @@
+{
+  "league_id": "YOUR_LEAGUE_ID_HERE",
+  "season": 2026,
+  "my_slot": 1,
+  "my_team_id": null,
+  "teams": 12,
+  "rounds": 16,
+  "cookie_file": "~/.config/fantasy-draft-sim/cookies.json",
+  "board_cache": "./board.json",
+  "lineup": {"QB": 2, "RB": 2, "WR": 2, "TE": 1, "K": 1, "D/ST": 1},
+  "flex": 2,
+  "flex_positions": ["RB", "WR", "TE"]
+}

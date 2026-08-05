@@ -105,6 +105,35 @@ REPLACEMENT_FRACTION = {
 DEFAULT_REPLACEMENT = 0.55
 
 
+# Players whose ESPN designation is NOT injury-related.
+#
+# ESPN tags contract hold-ins and holdouts with the same injury designations it
+# uses for actual injuries, which makes the risk model penalize a business
+# dispute as if it were a torn ligament. Worse, it is applied inconsistently --
+# in Aug 2026 Gibbs and Bijan Robinson were in identical hold-in situations and
+# only Gibbs carried a QUESTIONABLE tag.
+#
+# Map name -> the status to use instead. Review before every draft; a hold-in
+# that drags into the season IS a real availability risk, just not a medical one.
+NON_INJURY_OVERRIDE = {
+    # Aug 2026: contract hold-ins, not medical. Both attending camp, skipping
+    # practice while negotiating extensions. Revisit if either drags past cutdowns.
+    "Jahmyr Gibbs": ("ACTIVE", "contract hold-in, seeking extension (Aug 2026)"),
+}
+
+
+def effective_status(player):
+    """
+    The injury status to actually model for this player.
+
+    Applies NON_INJURY_OVERRIDE so contract disputes are not scored as injuries.
+    """
+    name = player.get("name")
+    if name in NON_INJURY_OVERRIDE:
+        return NON_INJURY_OVERRIDE[name][0]
+    return player.get("injury") or "ACTIVE"
+
+
 def _geometric(p, rng, cap=20):
     """Number of trials until success, >= 1."""
     n = 1
@@ -168,7 +197,7 @@ def expected_points(player, weeks, rng, replacement_fraction=None):
         return 0.0
 
     pos = player.get("pos", "?")
-    avail = simulate_availability(pos, player.get("injury"), weeks, rng)
+    avail = simulate_availability(pos, effective_status(player), weeks, rng)
     per_game = proj / weeks
 
     frac = replacement_fraction
@@ -190,7 +219,7 @@ def risk_profile(player, weeks=17, trials=2000, seed=None):
     pts, missed = [], []
     for _ in range(trials):
         avail = simulate_availability(player.get("pos", "?"),
-                                     player.get("injury"), weeks, rng)
+                                     effective_status(player), weeks, rng)
         missed.append(weeks - avail)
         proj = player.get("proj") or 0
         per_game = proj / weeks
@@ -200,10 +229,15 @@ def risk_profile(player, weeks=17, trials=2000, seed=None):
     pts.sort()
     missed.sort()
     n = len(pts)
+    name = player.get("name")
+    override = NON_INJURY_OVERRIDE.get(name)
     return {
-        "name": player.get("name"),
+        "name": name,
         "pos": player.get("pos"),
         "proj_raw": player.get("proj"),
+        "espn_status": player.get("injury") or "ACTIVE",
+        "modeled_status": effective_status(player),
+        "override_reason": override[1] if override else None,
         "mean": sum(pts) / n,
         "median": pts[n // 2],
         "p10": pts[n // 10],

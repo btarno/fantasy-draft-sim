@@ -204,6 +204,12 @@ def cmd_risk(cfg, args):
         print(f"  {r['name']:<24}{r['pos']:<5}{r['proj_raw'] or 0:6.0f}{r['mean']:7.0f}"
               f"{r['p10']:7.0f}{r['p90']:7.0f}{r['mean_missed']:6.1f}"
               f"{r['p_misses_4plus']*100:6.0f}%{r['p_full_season']*100:8.0f}%")
+    overrides = [r for r in rows if r.get("override_reason")]
+    if overrides:
+        print("\n  ⚠️  NON-INJURY OVERRIDES APPLIED (ESPN tag is not medical):")
+        for r in overrides:
+            print(f"    {r['name']}: ESPN says {r['espn_status']}, "
+                  f"modeled as {r['modeled_status']} — {r['override_reason']}")
     print("\n  raw     = ESPN projection (assumes a fully healthy season)")
     print("  adj     = injury-adjusted, incl. production from a replacement while out")
     print("  p10/p90 = 10th / 90th percentile season outcomes")

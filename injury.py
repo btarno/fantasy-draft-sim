@@ -105,21 +105,33 @@ REPLACEMENT_FRACTION = {
 DEFAULT_REPLACEMENT = 0.55
 
 
-# Players whose ESPN designation is NOT injury-related.
+# Players whose ESPN designation is NOT (purely) injury-related.
 #
 # ESPN tags contract hold-ins and holdouts with the same injury designations it
-# uses for actual injuries, which makes the risk model penalize a business
-# dispute as if it were a torn ligament. Worse, it is applied inconsistently --
-# in Aug 2026 Gibbs and Bijan Robinson were in identical hold-in situations and
-# only Gibbs carried a QUESTIONABLE tag.
+# uses for actual injuries, and applies them inconsistently -- in Aug 2026 Gibbs
+# carried QUESTIONABLE while Bijan Robinson, in an identical hold-in, had no tag.
 #
-# Map name -> the status to use instead. Review before every draft; a hold-in
-# that drags into the season IS a real availability risk, just not a medical one.
+# CAUTION, learned the hard way: a hold-in and a real injury can coexist. Gibbs
+# was initially overridden to full ACTIVE on the assumption his tag was purely
+# contractual. Sleeper's API exposed an `injury_body_part` of "Back", and beat
+# reporting confirmed he reported a back issue at the pre-camp conditioning test
+# (Dan Campbell: minor, not significant). So the honest treatment is neither
+# ACTIVE nor QUESTIONABLE -- it is "plays week 1, but carries elevated risk".
+#
+# Format: name -> (status_to_model, hazard_multiplier_override_or_None, reason)
+# hazard_multiplier_override replaces CURRENT_STATUS[status]["hazard_mult"] when
+# set, letting you encode partial credit instead of a binary flip.
 NON_INJURY_OVERRIDE = {
-    # Aug 2026: contract hold-ins, not medical. Both attending camp, skipping
-    # practice while negotiating extensions. Revisit if either drags past cutdowns.
-    "Jahmyr Gibbs": ("ACTIVE", "contract hold-in, seeking extension (Aug 2026)"),
+    "Jahmyr Gibbs": (
+        "ACTIVE", 1.20,
+        "contract hold-in AND minor back issue from conditioning test "
+        "(coach: not significant) -- expected week 1, elevated recurrence risk",
+    ),
 }
+
+
+def _override_for(player):
+    return NON_INJURY_OVERRIDE.get(player.get("name"))
 
 
 def effective_status(player):
@@ -128,10 +140,19 @@ def effective_status(player):
 
     Applies NON_INJURY_OVERRIDE so contract disputes are not scored as injuries.
     """
-    name = player.get("name")
-    if name in NON_INJURY_OVERRIDE:
-        return NON_INJURY_OVERRIDE[name][0]
+    ov = _override_for(player)
+    if ov:
+        return ov[0]
     return player.get("injury") or "ACTIVE"
+
+
+def effective_hazard_mult(player):
+    """Hazard multiplier, honouring a partial override if one is set."""
+    ov = _override_for(player)
+    if ov and ov[1] is not None:
+        return ov[1]
+    status = effective_status(player)
+    return CURRENT_STATUS.get(status, CURRENT_STATUS["ACTIVE"])["hazard_mult"]
 
 
 def _geometric(p, rng, cap=20):
@@ -157,7 +178,7 @@ def draw_injury_length(pos, rng):
     return _geometric(1.0 / body_mean, rng)
 
 
-def simulate_availability(pos, injury_status, weeks, rng):
+def simulate_availability(pos, injury_status, weeks, rng, hazard_mult=None):
     """
     Simulate one player's season week by week.
 
@@ -167,7 +188,8 @@ def simulate_availability(pos, injury_status, weeks, rng):
         return weeks
 
     status = CURRENT_STATUS.get(injury_status or "ACTIVE", CURRENT_STATUS["ACTIVE"])
-    hazard = HAZARD.get(pos, DEFAULT_HAZARD) * status["hazard_mult"]
+    mult = status["hazard_mult"] if hazard_mult is None else hazard_mult
+    hazard = HAZARD.get(pos, DEFAULT_HAZARD) * mult
 
     out_for = status["starting_out"]
     available = 0
@@ -197,7 +219,8 @@ def expected_points(player, weeks, rng, replacement_fraction=None):
         return 0.0
 
     pos = player.get("pos", "?")
-    avail = simulate_availability(pos, effective_status(player), weeks, rng)
+    avail = simulate_availability(pos, effective_status(player), weeks, rng,
+                                  hazard_mult=effective_hazard_mult(player))
     per_game = proj / weeks
 
     frac = replacement_fraction
@@ -219,7 +242,8 @@ def risk_profile(player, weeks=17, trials=2000, seed=None):
     pts, missed = [], []
     for _ in range(trials):
         avail = simulate_availability(player.get("pos", "?"),
-                                     effective_status(player), weeks, rng)
+                                     effective_status(player), weeks, rng,
+                                     hazard_mult=effective_hazard_mult(player))
         missed.append(weeks - avail)
         proj = player.get("proj") or 0
         per_game = proj / weeks
@@ -237,7 +261,7 @@ def risk_profile(player, weeks=17, trials=2000, seed=None):
         "proj_raw": player.get("proj"),
         "espn_status": player.get("injury") or "ACTIVE",
         "modeled_status": effective_status(player),
-        "override_reason": override[1] if override else None,
+        "override_reason": override[2] if override else None,
         "mean": sum(pts) / n,
         "median": pts[n // 2],
         "p10": pts[n // 10],

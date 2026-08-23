@@ -148,6 +148,9 @@ def get_board(cfg, limit=300):
                 proj = st.get("appliedTotal")
 
         out.append({
+            # ESPN's numeric player id. Required to resolve live draft picks
+            # (mDraftDetail returns playerId only, never a name).
+            "id": p.get("id"),
             "name": p.get("fullName"),
             "pos": POS.get(p.get("defaultPositionId"), "?"),
             "team": TEAM.get(p.get("proTeamId"), "?"),

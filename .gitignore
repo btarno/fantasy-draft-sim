@@ -13,3 +13,4 @@ __pycache__/
 venv/
 .DS_Store
 ranking.json
+draft_night_state.json

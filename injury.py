@@ -122,11 +122,12 @@ DEFAULT_REPLACEMENT = 0.55
 # hazard_multiplier_override replaces CURRENT_STATUS[status]["hazard_mult"] when
 # set, letting you encode partial credit instead of a binary flip.
 NON_INJURY_OVERRIDE = {
-    "Jahmyr Gibbs": (
-        "ACTIVE", 1.20,
-        "contract hold-in AND minor back issue from conditioning test "
-        "(coach: not significant) -- expected week 1, elevated recurrence risk",
-    ),
+    # RESOLVED 2026-08-07: Gibbs signed a 3yr/$67.5M extension and returned to
+    # practice. ESPN now reports him ACTIVE, so no override is needed -- keeping
+    # one would have been a stale thumb on the scale. Entry left as the worked
+    # example of the pattern.
+    #
+    # "Jahmyr Gibbs": ("ACTIVE", 1.20, "hold-in + minor back issue (Aug 2026)"),
 }
 
 

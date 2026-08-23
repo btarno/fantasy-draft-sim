@@ -26,7 +26,12 @@ from construction import CONSTRUCTIONS, make_construction_strategy
 # Findings this suite is guarding. If one of these flips, the suite says so
 # loudly instead of quietly reporting new numbers.
 EXPECTED = {
-    "double_tap_is_worst": "QB@R4+R5 should be the worst QB-timing strategy",
+    # NOTE: the QB double-tap finding was specific to the 2QB format. The league
+    # changed to 1QB + 1 FLEX on/around 2026-08-24, which makes "two QBs in
+    # back-to-back early picks" a strategy nobody would run and the test
+    # meaningless. Replaced with the finding that still applies: taking QB1 early
+    # (R4) should not beat taking him late, because the QB curve is flat.
+    "early_qb_not_better": "QB@R4+R6 should not beat QB@R8+R9",
     "zero_rb_is_worst": "zero-RB should be the worst roster construction",
     "best_available_top": "best-available should be at or near the top",
 }
@@ -114,8 +119,8 @@ def main():
     qb_variants = {f"QB@R{a}+R{b}": sim.make_strategy(a, b, cfg)
                    for a, b in [(4, 6), (4, 5), (6, 7), (8, 9)]}
     qb_res = paired_compare(board, cfg, qb_variants, n_qb, "QB timing")
-    worst_qb = min(qb_res, key=lambda k: qb_res[k]["mean"])
-    findings["double_tap_is_worst"] = (worst_qb == "QB@R4+R5")
+    findings["early_qb_not_better"] = (
+        qb_res["QB@R4+R6"]["mean"] <= qb_res["QB@R8+R9"]["mean"])
 
     hdr(4, "ROSTER CONSTRUCTION")
     con_variants = {name: make_construction_strategy(plan, cfg)

@@ -38,17 +38,22 @@ import injury
 # Positions that may be taken in the early rounds.
 EARLY_POS = ("RB", "WR", "TE")
 
-# Where QBs start entering the list. 12-team league, so ~41 is late round 4 --
-# early enough that autopick always has a genuine starter available for the
-# second QB slot, late enough that we never reach for QB1.
-QB_ENTRY_SLOT = 41
+# Where QBs start entering the list.
+#
+# TUNED PER FORMAT. In the old 2QB setup this was 41 (late round 4), because two
+# mandatory QB slots meant autopick needed a genuine starter available twice.
+# The league moved to 1QB + 1 FLEX on 2026-08-24, so only 12 QBs start league-
+# wide instead of 24 and the position is far less scarce -- but the top of the
+# QB curve is now steeper relative to replacement (QB12 replacement, not QB24).
+# Slot 55 puts QB1 around round 5, which validate_ranking.py confirms.
+QB_ENTRY_SLOT = 55
 
-# Skill players placed between each seeded QB. Lower = QBs cluster tighter.
-# 2 keeps both starters inside a ~12-slot window so neither slot gets a backup.
-SKILL_PER_QB = 2
+# Skill players placed between each seeded QB.
+SKILL_PER_QB = 6
 
-# Seed this many QBs in the window: 2 starters + 1 usable backup.
-QB_TARGET = 3
+# Seed this many QBs. Roster max is 2 QB (ESPN positionLimits), and only one
+# starts, so a starter plus one backup is the whole requirement.
+QB_TARGET = 2
 
 # Kickers and defenses go at the very bottom regardless of projection.
 LAST_POS = ("K", "D/ST")

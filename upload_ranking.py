@@ -27,11 +27,12 @@ order, which is fine because our list agrees with ADP more the deeper you go.
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
 
-CDP = "/tmp/cdp.py"
+CDP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cdp.py")
 URL = "https://fantasy.espn.com/football/editdraftstrategy?leagueId=906803824"
 
 # JS helpers injected into the page.
@@ -118,7 +119,7 @@ def main():
     time.sleep(9)
 
     title = ev(ws, "document.title")
-    if "Pre-Draft" not in str(title):
+    if "Draft Strategy" not in str(title) and "Pre-Draft" not in str(title):
         sys.exit(f"unexpected page '{title}' -- session may have expired")
 
     # Make sure we're on the Pre-Draft Rankings tab.

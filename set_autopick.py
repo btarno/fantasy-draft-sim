@@ -35,11 +35,12 @@ Position limits keep it honest even if a round preference cannot be met.
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
 
-CDP = "/tmp/cdp.py"
+CDP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cdp.py")
 URL = "https://fantasy.espn.com/football/editdraftstrategy?leagueId=906803824"
 
 # MIN / MAX per position. MAX is the guardrail that matters.
@@ -104,7 +105,7 @@ def main():
                    capture_output=True, text=True, timeout=120)
     time.sleep(9)
 
-    if "Pre-Draft" not in str(ev(ws, "document.title")):
+    if not any(k in str(ev(ws, "document.title")) for k in ("Draft Strategy", "Pre-Draft")):
         sys.exit("unexpected page -- session may have expired")
 
     ev(ws, "(()=>{const b=Array.from(document.querySelectorAll('button'))"

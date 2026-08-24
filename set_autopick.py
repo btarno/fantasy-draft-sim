@@ -44,26 +44,31 @@ CDP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cdp.py")
 URL = "https://fantasy.espn.com/football/editdraftstrategy?leagueId=906803824"
 
 # MIN / MAX per position. MAX is the guardrail that matters.
+# Updated 2026-08-24 for the 1QB + 1FLEX format (was 2QB + 2FLEX).
+# ESPN's own positionLimits cap the roster at 2 QB / 8 RB / 8 WR / 2 TE.
 LIMITS = {
-    "Quarterback": (2, 3),
-    "Running Back": (4, 7),
-    "Wide Receiver": (4, 8),
+    "Quarterback": (1, 2),
+    "Running Back": (5, 8),
+    "Wide Receiver": (5, 8),
     "Tight End": (1, 2),
     "Place Kicker": (1, 1),
     "Team Defense/Special Teams": (1, 1),
 }
 
-# Per-round preference. 18 rounds.
+# Per-round preference. 16 rounds (was 18).
+# Only ONE QB starts now, so a single QB slot around R5 plus a late backup is the
+# whole requirement -- the rest goes to RB/WR depth, which the injury Monte Carlo
+# shows is where the real edge lives (+154 on the p10 floor vs ESPN's default).
 ROUNDS = {
     1: "Best Available", 2: "Best Available", 3: "Best Available",
     4: "Best Available",
     5: "Quarterback",
-    6: "Flex",
-    7: "Quarterback",
-    8: "Flex", 9: "Flex", 10: "Tight End", 11: "Flex", 12: "Flex",
-    13: "Flex", 14: "Flex", 15: "Flex", 16: "Flex",
-    17: "Place Kicker",
-    18: "Team Defense/Special Teams",
+    6: "Flex", 7: "Flex",
+    8: "Tight End",
+    9: "Flex", 10: "Flex", 11: "Flex", 12: "Flex", 13: "Flex",
+    14: "Quarterback",
+    15: "Place Kicker",
+    16: "Team Defense/Special Teams",
 }
 
 

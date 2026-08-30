@@ -1,0 +1,36 @@
+{
+  "league_id": "906803824",
+  "season": 2026,
+  "my_slot": 1,
+  "my_team_id": 9,
+  "teams": 12,
+  "rounds": 16,
+  "cookie_file": "~/.hermes/credentials/espn_cookies.json",
+  "board_cache": "./board.json",
+  "lineup": {
+    "QB": 1,
+    "RB": 2,
+    "WR": 2,
+    "TE": 1,
+    "K": 1,
+    "D/ST": 1
+  },
+  "flex": 1,
+  "flex_positions": [
+    "RB",
+    "WR",
+    "TE"
+  ],
+  "bench": 7,
+  "ppr": 1.0,
+  "pass_td": 4,
+  "acquisition": "WAIVERS_TRADITIONAL",
+  "position_limits": {
+    "QB": 2,
+    "RB": 8,
+    "WR": 8,
+    "TE": 2,
+    "K": 3,
+    "D/ST": 3
+  }
+}

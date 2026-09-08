@@ -42,14 +42,37 @@ by_id = {p.get("id"): p["name"] for p in board if p.get("id")}
 tx = [t for t in (d.get("transactions") or [])
       if (t.get("type") or "").startswith("TRADE")]
 
-resolved = set()
+def sig(t):
+    """
+    Identity of a trade by its CONTENT: who sends which player to whom.
+
+    Needed because a cancellation is recorded as its own
+    TRADE_PROPOSAL/CANCELED row carrying the same items, with
+    relatedTransactionId set to None. Matching only on relatedTransactionId
+    misses it and leaves the original showing PENDING forever.
+    """
+    items = sorted(
+        (it.get("playerId"), it.get("fromTeamId"), it.get("toTeamId"))
+        for it in (t.get("items") or []))
+    return tuple(items)
+
+
+resolved_ids = set()
+resolved_sigs = []          # (signature, timestamp) of each resolution
 for t in tx:
     ttype = t.get("type") or ""
-    if any(k in ttype for k in ("DECLINE", "ACCEPT", "CANCEL")):
-        rel = t.get("relatedTransactionId")
-        if rel:
-            resolved.add(str(rel))
-        resolved.add(str(t.get("id")))
+    status = (t.get("status") or "").upper()
+    is_resolution = (any(k in ttype for k in ("DECLINE", "ACCEPT"))
+                     or status in ("CANCELED", "CANCELLED"))
+    if not is_resolution:
+        continue
+    rel = t.get("relatedTransactionId")
+    if rel:
+        resolved_ids.add(str(rel))
+    resolved_ids.add(str(t.get("id")))
+    s = sig(t)
+    if s:
+        resolved_sigs.append((s, t.get("proposedDate") or 0))
 
 
 def show(t):
@@ -73,10 +96,27 @@ def show(t):
         print(ln)
 
 
-out = [t for t in tx
-       if t.get("teamId") == me
-       and (t.get("status") or "").upper() == "PENDING"
-       and str(t.get("id")) not in resolved]
+out = []
+seen_sigs = set()
+for t in sorted(tx, key=lambda x: -(x.get("proposedDate") or 0)):
+    if t.get("teamId") != me:
+        continue
+    if (t.get("status") or "").upper() != "PENDING":
+        continue
+    if str(t.get("id")) in resolved_ids:
+        continue
+    s = sig(t)
+    ts = t.get("proposedDate") or 0
+    # A resolution with identical items kills this proposal only if it happened
+    # AT OR AFTER it. Matching on content alone also killed the live re-send,
+    # because a re-sent offer has the same items as the one that was canceled.
+    if any(rs == s and rts >= ts for rs, rts in resolved_sigs):
+        continue
+    # Re-sending the same offer creates a second PENDING row; keep the newest.
+    if s in seen_sigs:
+        continue
+    seen_sigs.add(s)
+    out.append(t)
 
 print(f"=== OUTGOING — waiting on their answer ({len(out)}) ===")
 for t in out:

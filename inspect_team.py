@@ -24,7 +24,7 @@ def norm(s):
 by_name = {norm(p["name"]): p for p in board}
 
 for t in d["teams"]:
-    if not (t.get("name") or "").startswith("C-Tun"):
+    if not (t.get("name") or "").startswith("Predestined"):
         continue
     print(f"=== {t.get('name')} (rank {t.get('currentProjectedRank')}) ===")
     groups = {}

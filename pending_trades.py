@@ -1,4 +1,21 @@
-"""Show MY pending trade offers with the actual players involved."""
+"""
+Pending trades, distinguishing OUTGOING (awaiting their answer) from
+INCOMING (awaiting mine).
+
+Two separate traps here:
+
+  1. mTransactions2 leaves proposal rows at status=PENDING forever; a decline
+     is a separate record linked by relatedTransactionId. Filtering on status
+     alone resurrects dead offers.
+
+  2. mPendingTransactions only returns trades awaiting MY response. An offer I
+     sent that the other manager has not answered does NOT appear there, so
+     "mPendingTransactions is empty" does NOT mean "I have no live offers".
+
+Correct answer needs both: mTransactions2 filtered against resolutions for
+outgoing, mPendingTransactions for incoming.
+"""
+import datetime
 import json
 
 import requests
@@ -10,37 +27,67 @@ ck = api.load_cookies(cfg)
 base = (f"{api.API_HOST}/apis/v3/games/ffl/seasons/2026/segments/0"
         f"/leagues/{cfg['league_id']}")
 
-# USE mPendingTransactions, NOT mTransactions2.
-#
-# mTransactions2 keeps every proposal row at status=PENDING forever. A decline
-# is a SEPARATE record linked by relatedTransactionId and never updates the
-# original, so filtering that log on status reports week-old dead offers as
-# live. mPendingTransactions is the view ESPN's own UI reads and is the only
-# trustworthy answer to "do I have offers right now".
-d = requests.get(base, params={"view": ["mPendingTransactions", "mTeam"]},
+d = requests.get(base, params={"view": ["mTransactions2", "mTeam"]},
                  cookies=ck, headers={"User-Agent": "Mozilla/5.0"},
                  timeout=45).json()
+inc = requests.get(base, params={"view": ["mPendingTransactions"]},
+                   cookies=ck, headers={"User-Agent": "Mozilla/5.0"},
+                   timeout=45).json()
 
 teams = {t["id"]: (t.get("name") or f"Team {t['id']}") for t in d["teams"]}
 me = cfg["my_team_id"]
-
 board = json.load(open("board.json"))
 by_id = {p.get("id"): p["name"] for p in board if p.get("id")}
 
-pend = [t for t in (d.get("transactions") or [])
-        if (t.get("type") or "").startswith("TRADE")]
+tx = [t for t in (d.get("transactions") or [])
+      if (t.get("type") or "").startswith("TRADE")]
 
-print(f"=== PENDING TRADES ({len(pend)}) ===")
-for t in pend:
-    prop = t.get("teamId")
-    mine = "  <-- YOU PROPOSED" if prop == me else "  <-- SENT TO YOU"
-    print(f"\n  id={str(t.get('id'))[:8]}  from={teams.get(prop)}{mine}")
-    items = t.get("items") or []
-    for it in items:
-        pid = it.get("playerId")
-        nm = by_id.get(pid, f"player {pid}")
-        frm = teams.get(it.get("fromTeamId"), "?")
-        to = teams.get(it.get("toTeamId"), "?")
-        print(f"     {nm:<24} {frm}  ->  {to}")
-    if not items:
-        print("     (no item detail returned)")
+resolved = set()
+for t in tx:
+    ttype = t.get("type") or ""
+    if any(k in ttype for k in ("DECLINE", "ACCEPT", "CANCEL")):
+        rel = t.get("relatedTransactionId")
+        if rel:
+            resolved.add(str(rel))
+        resolved.add(str(t.get("id")))
+
+
+def show(t):
+    ts = t.get("proposedDate") or t.get("processDate")
+    when = (datetime.datetime.fromtimestamp(ts / 1000).strftime("%b %d %H:%M")
+            if ts else "?")
+    others = set()
+    lines = []
+    for it in (t.get("items") or []):
+        nm = by_id.get(it.get("playerId"), f"player {it.get('playerId')}")
+        frm, to = it.get("fromTeamId"), it.get("toTeamId")
+        if frm != me:
+            others.add(frm)
+        if to != me:
+            others.add(to)
+        arrow = "GET " if to == me else "GIVE"
+        lines.append(f"       {arrow} {nm}")
+    partner = ", ".join(teams.get(o, "?") for o in others) or "?"
+    print(f"     with {partner}   (sent {when})")
+    for ln in lines:
+        print(ln)
+
+
+out = [t for t in tx
+       if t.get("teamId") == me
+       and (t.get("status") or "").upper() == "PENDING"
+       and str(t.get("id")) not in resolved]
+
+print(f"=== OUTGOING — waiting on their answer ({len(out)}) ===")
+for t in out:
+    show(t)
+    print()
+
+incoming = [t for t in (inc.get("transactions") or [])
+            if (t.get("type") or "").startswith("TRADE")]
+print(f"=== INCOMING — waiting on YOUR answer ({len(incoming)}) ===")
+for t in incoming:
+    show(t)
+    print()
+if not incoming:
+    print("  (none)")

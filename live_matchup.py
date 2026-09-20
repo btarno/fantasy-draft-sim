@@ -12,7 +12,7 @@ base = (f"{api.API_HOST}/apis/v3/games/ffl/seasons/2026/segments/0"
         f"/leagues/{cfg['league_id']}")
 d = requests.get(base,
                  params={"view": ["mMatchupScore", "mRoster", "mTeam"],
-                         "scoringPeriodId": 1},
+                         "scoringPeriodId": 2},
                  cookies=ck, headers={"User-Agent": "Mozilla/5.0"},
                  timeout=45).json()
 
@@ -21,7 +21,7 @@ me = cfg["my_team_id"]
 
 opp = None
 for m in (d.get("schedule") or []):
-    if m.get("matchupPeriodId") != 1:
+    if m.get("matchupPeriodId") != 2:
         continue
     h, a = (m.get("home") or {}), (m.get("away") or {})
     if h.get("teamId") == me:
@@ -41,7 +41,7 @@ def score_team(tid):
             slot = SLOT.get(e.get("lineupSlotId"), "?")
             actual = proj = 0.0
             for s in (pl.get("stats") or []):
-                if s.get("scoringPeriodId") != 1:
+                if s.get("scoringPeriodId") != 2:
                     continue
                 if s.get("statSourceId") == 0:
                     actual = s.get("appliedTotal") or 0.0
@@ -59,7 +59,7 @@ def score_team(tid):
 my_total, my_rows = score_team(me)
 op_total, op_rows = score_team(opp)
 
-print(f"=== WEEK 1: {teams[me]} {my_total:.1f} — "
+print(f"=== WEEK 2: {teams[me]} {my_total:.1f} — "
       f"{op_total:.1f} {teams.get(opp)} ===")
 print()
 order = {"QB": 0, "RB": 1, "WR": 2, "TE": 3, "FLEX": 4, "K": 5, "D/ST": 6}
